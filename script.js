@@ -255,3 +255,56 @@ function closeEditProfile() {
 document.addEventListener('DOMContentLoaded', () => {
   lineApp.init();
 });
+
+lineApp.activateID = function() {
+    let myID = localStorage.getItem('lineAppMyID');
+    if (!myID) {
+        myID = 'LINE-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+        localStorage.setItem('lineAppMyID', myID);
+    }
+    
+    const idDisplay = document.getElementById('myUniqueId');
+    if (idDisplay) {
+        idDisplay.innerText = "ID: " + myID;
+    }
+};
+
+lineApp.setupMyAvatar = function() {
+    const profileImg = document.getElementById('profileImg');
+    const savedAvatar = localStorage.getItem('myProfileAvatar');
+    if (savedAvatar && profileImg) profileImg.src = savedAvatar;
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.id = 'hiddenAvatarInput'; 
+    input.style.display = 'none';
+    if(!document.getElementById('hiddenAvatarInput')) document.body.appendChild(input);
+
+    if (profileImg) {
+        profileImg.style.cursor = 'pointer';
+        profileImg.onclick = (e) => {
+            e.stopPropagation(); 
+            input.click();
+        };
+    }
+
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                profileImg.src = event.target.result;
+                localStorage.setItem('myProfileAvatar', event.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+};
+
+lineApp.activateID();
+lineApp.setupMyAvatar();
+
+if (typeof lineApp.init === 'function') {
+    lineApp.init();
+}

@@ -1,488 +1,257 @@
-class LINEApp {
-    constructor() {
-        this.currentUser = localStorage.getItem('lineCurrentUser') || 'You';
-        this.userStatus = localStorage.getItem('lineUserStatus') || '● Online';
-        this.friends = JSON.parse(localStorage.getItem('lineFriends')) || [];
-        this.messages = JSON.parse(localStorage.getItem('lineMessages')) || {};
-        this.currentChatFriend = null;
-        this.init();
+const lineApp = {
+  friends: [],
+  currentChat: null,
+
+  init() {
+    this.loadData();
+    this.setupEventListeners();
+  },
+
+  loadData() {
+    const data = localStorage.getItem('lineAppData');
+    if (data) {
+      const parsed = JSON.parse(data);
+      this.friends = parsed.friends || [];
+      this.renderContacts();
     }
+  },
 
-    init() {
-        this.updateProfile();
-        this.renderFriends();
-        this.setupEventListeners();
-        this.loadTab('friends');
+  saveData() {
+    localStorage.setItem('lineAppData', JSON.stringify({
+      friends: this.friends
+    }));
+  },
+
+  setupEventListeners() {
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      this.filterContacts(e.target.value);
+    });
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.sendMessage();
+      }
+    });
+    document.querySelector('.send-btn').addEventListener('click', () => {
+      this.sendMessage();
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        this.switchTab(tab.dataset.tab);
+      });
+    });
+  },
+
+  addNewFriend() {
+    const name = document.getElementById('newFriendName').value;
+    const id = document.getElementById('friendId').value;
+    if (name && id) {
+      const friend = {
+        name,
+        id,
+        avatar: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&size=56&background=00c300&color=fff',
+        messages: [],
+        lastMessage: '',
+        time: new Date().toLocaleTimeString()
+      };
+      this.friends.push(friend);
+      this.saveData();
+      this.renderContacts();
+      this.closeModal('addFriendModal');
+      document.getElementById('newFriendName').value = '';
+      document.getElementById('friendId').value = '';
     }
+  },
 
-    setupEventListeners() {
-        // Search
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            this.searchFriends(e.target.value);
-        });
-
-        // Global save
-        window.addEventListener('beforeunload', () => this.saveAllData());
-        
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                const tabName = e.currentTarget.dataset.tab;
-                this.loadTab(tabName);
-            });
-        });
+  renderContacts() {
+    const list = document.getElementById('contactsList');
+    if (this.friends.length === 0) {
+      list.innerHTML = `<div class="empty-state">
+        <i class="fas fa-user-plus"></i>
+        <h3>Tambahkan teman baru</h3>
+        <p>Klik ikon + untuk menambahkan teman chat</p>
+      </div>`;
+    } else {
+      list.innerHTML = this.friends.map(friend => `
+        <div class="contact-item" onclick="lineApp.openChat('${friend.id}')">
+          <div class="contact-avatar">
+            <img src="${friend.avatar}" alt="${friend.name}">
+            <div class="status-online"></div>
+          </div>
+          <div class="contact-info">
+            <div class="contact-name">${friend.name}</div>
+            <div class="contact-last-message">${friend.lastMessage || 'Belum ada pesan'}</div>
+          </div>
+          <div class="contact-time">${friend.time}</div>
+        </div>
+      `).join('');
     }
+  },
 
-    updateProfile() {
-        document.getElementById('currentUser').textContent = this.currentUser;
-        document.querySelector('.profile-status').textContent = this.userStatus;
-        document.getElementById('profileImg').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(this.currentUser)}&size=44&background=00c300&color=fff`;
+  openChat(friendId) {
+    const friend = this.friends.find(f => f.id === friendId);
+    if (friend) {
+      this.currentChat = friend;
+      this.renderChat();
+      document.querySelector('.welcome-screen').style.display = 'none';
+      document.querySelector('.chat-header').style.display = 'flex';
+      document.querySelector('.message-input').style.display = 'flex';
     }
+  },
 
-    // === FRIEND MANAGEMENT ===
-    addNewFriend() {
-        const name = document.getElementById('newFriendName').value.trim();
-        const id = document.getElementById('friendId').value.trim();
-        const isGroup = document.getElementById('isGroup').checked;
-        const avatarFile = document.getElementById('friendAvatar').files[0];
+  renderChat() {
+    if (!this.currentChat) return;
+    const header = document.querySelector('.chat-header');
+    header.innerHTML = `
+      <img src="${this.currentChat.avatar}" alt="${this.currentChat.name}" class="contact-avatar">
+      <div class="contact-info">
+        <div class="contact-name">${this.currentChat.name}</div>
+        <div class="contact-last-message">Online</div>
+      </div>
+      <div class="chat-actions">
+        <i class="fas fa-phone"></i>
+        <i class="fas fa-video"></i>
+        <i class="fas fa-info-circle"></i>
+      </div>
+    `;
+    const messages = document.querySelector('.messages-container');
+    messages.innerHTML = this.currentChat.messages.map(msg => `
+      <div class="message ${msg.sent ? 'sent' : 'received'}">
+        ${msg.text}
+        <div class="message-time">${msg.time}</div>
+      </div>
+    `).join('');
+    messages.scrollTop = messages.scrollHeight;
+  },
 
-        if (!name) {
-            this.showNotification('Nama teman tidak boleh kosong!', 'error');
-            return;
-        }
-
-        if (this.friends.find(f => f.name.toLowerCase() === name.toLowerCase())) {
-            this.showNotification('Teman sudah ada!', 'error');
-            return;
-        }
-
-        const friend = {
-            id: id || `friend_${Date.now()}`,
-            name: name,
-            avatar: avatarFile ? URL.createObjectURL(avatarFile) : `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=56&background=${this.randomColor()}&color=fff`,
-            status: '● Online',
-            isGroup: isGroup,
-            lastMessage: '',
-            lastTime: new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'}),
-            unreadCount: 0,
-            timestamp: Date.now()
-        };
-
-        this.friends.push(friend);
-        this.messages[friend.name] = [];
-        this.saveAllData();
-        this.renderFriends();
-        this.closeNewChat();
-        this.showNotification(`Teman ${name} berhasil ditambahkan!`, 'success');
-        
-        // Reset form
-        document.getElementById('newFriendName').value = '';
-        document.getElementById('friendId').value = '';
-        document.getElementById('friendAvatar').value = '';
-        document.getElementById('isGroup').checked = false;
+  sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (text && this.currentChat) {
+      const message = {
+        text,
+        time: new Date().toLocaleTimeString(),
+        sent: true
+      };
+      this.currentChat.messages.push(message);
+      this.currentChat.lastMessage = text;
+      this.currentChat.time = message.time;
+      this.saveData();
+      this.renderChat();
+      this.renderContacts();
+      input.value = '';
     }
+  },
 
-    changeProfile() {
-        document.getElementById('editUserName').value = this.currentUser;
-        document.getElementById('editStatus').value = this.userStatus;
-        document.getElementById('editProfileModal').style.display = 'flex';
-    }
+  filterContacts(query) {
+    const items = document.querySelectorAll('.contact-item');
+    items.forEach(item => {
+      const name = item.querySelector('.contact-name').textContent.toLowerCase();
+      item.style.display = name.includes(query.toLowerCase()) ? 'flex' : 'none';
+    });
+  },
 
-    saveProfile() {
-        this.currentUser = document.getElementById('editUserName').value || 'You';
-        this.userStatus = document.getElementById('editStatus').value;
-        this.updateProfile();
-        this.saveAllData();
-        this.closeEditProfile();
-        this.showNotification('Profil berhasil diupdate!', 'success');
-    }
+  switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  },
 
-    // === CHAT FUNCTIONALITY ===
-    openChat(friendName) {
-        this.currentChatFriend = friendName;
-        this.renderFriends();
+  showNewChat() {
+    this.showModal('addFriendModal');
+  },
+
+  closeNewChat() {
+    this.closeModal('addFriendModal');
+  },
+
+  showUserMenu() {
+    const menu = document.getElementById('userMenu');
+    menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+  },
+
+  changeProfile() {
+    this.closeModal('userMenu');
+    this.showModal('editProfileModal');
+    document.getElementById('editUserName').value = document.getElementById('currentUser').textContent;
+    document.getElementById('editStatus').value = document.querySelector('.profile-status').textContent;
+  },
+
+  saveProfile() {
+    const name = document.getElementById('editUserName').value;
+    const status = document.getElementById('editStatus').value;
+    document.getElementById('currentUser').textContent = name;
+    document.querySelector('.profile-status').textContent = status;
+    this.closeModal('editProfileModal');
+  },
+
+  clearAllChats() {
+    if (confirm('Hapus semua chat?')) {
+      this.friends.forEach(f => f.messages = []);
+      this.saveData();
+      this.renderContacts();
+      if (this.currentChat) {
+        this.currentChat.messages = [];
         this.renderChat();
-        this.scrollToBottom();
+      }
     }
+  },
 
-    renderFriends() {
-        const container = document.getElementById('contactsList');
-        
-        if (this.friends.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-user-plus"></i>
-                    <h3>Tambahkan teman baru</h3>
-                    <p>Klik ikon + untuk menambahkan teman chat</p>
-                </div>
-            `;
-            return;
-        }
-
-        container.innerHTML = this.friends
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .map(friend => {
-                const isActive = this.currentChatFriend === friend.name;
-                const messages = this.messages[friend.name] || [];
-                const unreadCount = friend.unreadCount || messages.filter(m => m.sender !== this.currentUser && !m.read).length;
-                
-                return `
-                    <div class="contact-item ${isActive ? 'active' : ''}" onclick="lineApp.openChat('${friend.name}')">
-                        <div class="contact-avatar">
-                            <img src="${friend.avatar}" alt="${friend.name}">
-                            <div class="status-online"></div>
-                        </div>
-                        <div class="contact-info">
-                            <div class="contact-name">${friend.name}</div>
-                            <div class="contact-last-message">${friend.lastMessage || 'Belum ada pesan'}</div>
-                        </div>
-                        ${unreadCount > 0 ? `<div class="unread-count">${unreadCount > 99 ? '99+' : unreadCount}</div>` : ''}
-                        <div class="contact-time">${friend.lastTime}</div>
-                    </div>
-                `;
-            }).join('');
+  clearAllData() {
+    if (confirm('Reset semua data?')) {
+      localStorage.removeItem('lineAppData');
+      this.friends = [];
+      this.currentChat = null;
+      this.renderContacts();
+      document.querySelector('.welcome-screen').style.display = 'flex';
+      document.querySelector('.chat-header').style.display = 'none';
+      document.querySelector('.message-input').style.display = 'none';
     }
+  },
 
-    renderChat() {
-        const mainChat = document.getElementById('mainChat');
-        
-        if (!this.currentChatFriend) {
-            mainChat.innerHTML = `
-                <div class="welcome-screen">
-                    <div class="welcome-content">
-                        <img src="https://via.placeholder.com/100x100/00c300/FFFFFF?text=LINE" alt="LINE" class="welcome-logo">
-                        <h1>LINE</h1>
-                        <h2>Pilih teman untuk memulai chat</h2>
-                        <div class="quick-actions">
-                            <button class="quick-btn primary" onclick="showNewChat()">
-                                <i class="fas fa-plus"></i> Tambah Teman
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            return;
-        }
+  showModal(id) {
+    document.getElementById(id).style.display = 'flex';
+  },
 
-        const friend = this.friends.find(f => f.name === this.currentChatFriend);
-        const chatHeader = `
-            <div class="chat-header">
-                <div class="profile-section">
-                    <img src="${friend.avatar}" alt="${friend.name}" class="profile-img">
-                    <div class="profile-info">
-                        <div class="profile-name">${friend.name}</div>
-                        <div class="profile-status">${friend.status}</div>
-                    </div>
-                </div>
-                <div class="chat-actions">
-                    <i class="fas fa-phone"></i>
-                    <i class="fas fa-video"></i>
-                    <i class="fas fa-ellipsis-vertical"></i>
-                </div>
-            </div>
-        `;
-
-        const messagesContainer = `
-            <div class="messages-container" id="messagesContainer">
-                ${this.renderMessages()}
-            </div>
-            <div class="message-input">
-                <div class="message-input-container">
-                    <i class="fas fa-smile"></i>
-                    <input type="text" id="messageInput" placeholder="Ketik pesan...">
-                    <i class="fas fa-camera"></i>
-                    <i class="fas fa-paperclip"></i>
-                </div>
-                <button class="send-btn" onclick="lineApp.sendMessage()">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-        `;
-
-        mainChat.innerHTML = chatHeader + messagesContainer;
-        
-        // Event listeners
-        const input = document.getElementById('messageInput');
-        input.focus();
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
-
-        input.addEventListener('input', () => {
-            // Typing indicator
-            const friendIndex = this.friends.findIndex(f => f.name === this.currentChatFriend);
-            if (friendIndex !== -1) {
-                this.friends[friendIndex].status = '● Mengetik...';
-                this.renderFriends();
-            }
-        });
-    }
-
-    renderMessages() {
-        if (!this.currentChatFriend) return '';
-        
-        const messages = this.messages[this.currentChatFriend] || [];
-        return messages.map(msg => {
-            const isSent = msg.sender === this.currentUser;
-            return `
-                <div class="message ${isSent ? 'sent' : 'received'}">
-                    ${msg.text}
-                    <div class="message-time">${this.formatTime(msg.timestamp)}</div>
-                    ${isSent ? '<i class="fas fa-check-double"></i>' : ''}
-                </div>
-            `;
-        }).join('');
-    }
-
-    sendMessage() {
-        const input = document.getElementById('messageInput');
-        const text = input.value.trim();
-        
-        if (!text || !this.currentChatFriend) return;
-
-        const message = {
-            text,
-            sender: this.currentUser,
-            timestamp: new Date().toISOString(),
-            read: false
-        };
-
-        if (!this.messages[this.currentChatFriend]) {
-            this.messages[this.currentChatFriend] = [];
-        }
-        
-        this.messages[this.currentChatFriend].push(message);
-        
-        // Update friend info
-        const friendIndex = this.friends.findIndex(f => f.name === this.currentChatFriend);
-        if (friendIndex !== -1) {
-            this.friends[friendIndex].lastMessage = text.length > 20 ? text.substring(0, 20) + '...' : text;
-            this.friends[friendIndex].lastTime = this.formatTime();
-            this.friends[friendIndex].timestamp = Date.now();
-            this.friends[friendIndex].status = '● Online';
-        }
-
-        input.value = '';
-        this.renderChat();
-        this.scrollToBottom();
-        this.saveAllData();
-    }
-
-    scrollToBottom() {
-        const container = document.getElementById('messagesContainer');
-        if (container) {
-            setTimeout(() => {
-                container.scrollTop = container.scrollHeight;
-            }, 100);
-        }
-    }
-
-    // === UTILITY FUNCTIONS ===
-    searchFriends(query) {
-        const items = document.querySelectorAll('.contact-item');
-        items.forEach(item => {
-            const name = item.querySelector('.contact-name').textContent.toLowerCase();
-            item.style.display = name.includes(query.toLowerCase()) ? 'flex' : 'none';
-        });
-    }
-
-    loadTab(tabName) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        
-        // Filter friends (Friends vs Groups)
-        const filteredFriends = tabName === 'groups' 
-            ? this.friends.filter(f => f.isGroup)
-            : this.friends.filter(f => !f.isGroup);
-        
-        // Temporary render logic for groups
-        const container = document.getElementById('contactsList');
-        if (filteredFriends.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-${tabName === 'groups' ? 'user-friends' : 'user-plus'}"></i>
-                    <h3>${tabName === 'groups' ? 'Belum ada grup' : 'Belum ada teman'}</h3>
-                    <p>${tabName === 'groups' ? 'Buat grup chat baru' : 'Tambahkan teman baru'}</p>
-                </div>
-            `;
-        } else {
-            this.renderFriends(); // Simplified for now
-        }
-    }
-
-    formatTime(timestamp = null) {
-        const date = timestamp ? new Date(timestamp) : new Date();
-        return date.toLocaleTimeString('id-ID', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    }
-
-    randomColor() {
-        const colors = ['00c300', 'ff6600', 'ffcc00', '9933ff', '00ccff', 'ff3399'];
-        return colors[Math.floor(Math.random() * colors.length)];
-    }
-
-    // === MODAL FUNCTIONS ===
-    showNewChat() {
-        document.getElementById('addFriendModal').style.display = 'flex';
-        document.getElementById('newFriendName').focus();
-    }
-
-    closeNewChat() {
-        document.getElementById('addFriendModal').style.display = 'none';
-    }
-
-    changeProfile() {
-        document.getElementById('editProfileModal').style.display = 'flex';
-    }
-
-    closeEditProfile() {
-        document.getElementById('editProfileModal').style.display = 'none';
-    }
-
-    showUserList() {
-        this.renderFriendList();
-        document.getElementById('friendListModal').style.display = 'flex';
-    }
-
-    closeFriendList() {
-        document.getElementById('friendListModal').style.display = 'none';
-    }
-
-    renderFriendList() {
-        const container = document.getElementById('friendListContent');
-        container.innerHTML = this.friends.map(friend => `
-            <div class="friend-item">
-                <img src="${friend.avatar}" alt="${friend.name}" class="friend-avatar">
-                <div class="friend-info">
-                    <div class="friend-name">${friend.name}</div>
-                    <div class="friend-id">${friend.id}</div>
-                </div>
-                <div class="friend-status">${friend.status}</div>
-            </div>
-        `).join('');
-    }
-
-    // === DATA MANAGEMENT ===
-    saveAllData() {
-        localStorage.setItem('lineCurrentUser', this.currentUser);
-        localStorage.setItem('lineUserStatus', this.userStatus);
-        localStorage.setItem('lineFriends', JSON.stringify(this.friends));
-        localStorage.setItem('lineMessages', JSON.stringify(this.messages));
-    }
-
-    clearAllChats() {
-        if (confirm('Hapus semua chat? Pesan akan hilang permanen.')) {
-            Object.keys(this.messages).forEach(key => {
-                this.messages[key] = [];
-            });
-            this.friends.forEach(friend => {
-                friend.unreadCount = 0;
-                friend.lastMessage = '';
-            });
-            this.saveAllData();
-            if (this.currentChatFriend) {
-                this.renderChat();
-            }
-            this.showNotification('Semua chat dihapus!', 'success');
-        }
-    }
-
-    clearAllData() {
-        if (confirm('RESET SEMUA DATA? Semua teman dan chat akan hilang!')) {
-            localStorage.clear();
-            location.reload();
-        }
-    }
-
-    showNotification(message, type = 'info') {
-        // Simple notification
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-            ${message}
-        `;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${type === 'success' ? '#00c300' : '#ff4444'};
-            color: white;
-            padding: 16px 24px;
-            border-radius: 25px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-            z-index: 10000;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transform: translateX(400px);
-            transition: transform 0.3s ease;
-        `;
-        
-        document.body.appendChild(notification);
-        setTimeout(() => notification.style.transform = 'translateX(0)', 100);
-        
-        setTimeout(() => {
-            notification.style.transform = 'translateX(400px)';
-            setTimeout(() => document.body.removeChild(notification), 300);
-        }, 3000);
-    }
-}
-
-// Global functions
-const lineApp = new LINEApp();
+  closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+  }
+};
 
 function openMobileMenu() {
-    document.getElementById('sidebar').style.transform = 'translateX(0)';
-    document.getElementById('mobileOverlay').style.display = 'block';
-}
-
-function closeMobileMenu() {
-    document.getElementById('sidebar').style.transform = 'translateX(-100%)';
-    document.getElementById('mobileOverlay').style.display = 'none';
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('open');
+  document.getElementById('mobileOverlay').style.display = sidebar.classList.contains('open') ? 'block' : 'none';
 }
 
 function focusSearch() {
-    document.getElementById('searchInput').focus();
+  document.getElementById('searchInput').focus();
 }
 
 function showNewChat() {
-    lineApp.showNewChat();
+  lineApp.showNewChat();
+}
+
+function showUserMenu() {
+  lineApp.showUserMenu();
 }
 
 function closeNewChat() {
-    lineApp.closeNewChat();
+  lineApp.closeNewChat();
 }
 
 function showUserList() {
-    lineApp.showUserList();
+  lineApp.showModal('friendListModal');
+  const list = document.getElementById('friendListContent');
+  list.innerHTML = lineApp.friends.map(f => `<div class="friend-item">${f.name} (${f.id})</div>`).join('');
 }
 
 function closeFriendList() {
-    lineApp.closeFriendList();
+  lineApp.closeModal('friendListModal');
 }
 
 function closeEditProfile() {
-    lineApp.closeEditProfile();
+  lineApp.closeModal('editProfileModal');
 }
 
-// Auto-focus message input
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.message-input input')) {
-        e.target.focus();
-    }
-});
-
-// Responsive sidebar
-window.addEventListener('resize', () => {
-    if (window.innerWidth > 768) {
-        document.getElementById('sidebar').style.transform = 'translateX(0)';
-        document.getElementById('mobileOverlay').style.display = 'none';
-    }
+document.addEventListener('DOMContentLoaded', () => {
+  lineApp.init();
 });

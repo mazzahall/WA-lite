@@ -3,139 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LineClone - Chat App</title>
+    <title>LINE - Pesan Gratis</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal active">
-        <div class="modal-content">
-            <div class="logo">
-                <i class="fab fa-line"></i>
-                <h1>LineClone</h1>
-            </div>
-            
-            <div class="tab-container">
-                <button class="tab-btn active" onclick="showTab('login')">Login</button>
-                <button class="tab-btn" onclick="showTab('register')">Daftar</button>
-            </div>
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobileOverlay"></div>
 
-            <!-- Login Form -->
-            <form id="loginForm" class="tab-content active">
-                <input type="email" id="loginEmail" placeholder="Email" required>
-                <input type="password" id="loginPassword" placeholder="Password" required>
-                <button type="submit">Masuk</button>
-            </form>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <!-- Header -->
+        <div class="sidebar-header">
+            <div class="header-left">
+                <i class="fas fa-bars" id="mobileMenuBtn" onclick="openMobileMenu()"></i>
+                <div class="profile-section" onclick="openMobileMenu()">
+                    <img src="https://ui-avatars.com/api/?name=You&size=40&background=00c300&color=fff" 
+                         alt="Profile" class="profile-img" id="profileImg">
+                    <div class="profile-info">
+                        <div class="profile-name" id="currentUser">You</div>
+                        <div class="profile-status">● Online</div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <i class="fas fa-magnifying-glass search-icon" onclick="focusSearch()"></i>
+                <i class="fas fa-plus-circle add-chat" onclick="showNewChat()"></i>
+                <i class="fas fa-ellipsis-vertical menu-icon" onclick="showUserMenu()"></i>
+            </div>
+        </div>
 
-            <!-- Register Form -->
-            <form id="registerForm" class="tab-content">
-                <input type="text" id="regUsername" placeholder="Username" required>
-                <input type="email" id="regEmail" placeholder="Email" required>
-                <input type="password" id="regPassword" placeholder="Password" required>
-                <input type="tel" id="regPhone" placeholder="No. Telepon">
-                <button type="submit">Daftar</button>
-            </form>
+        <!-- Search -->
+        <div class="search-container">
+            <div class="search-box">
+                <i class="fas fa-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="Cari chat...">
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" data-tab="friends">
+                <i class="fas fa-users"></i>
+                <span>Teman</span>
+            </div>
+            <div class="tab" data-tab="groups">
+                <i class="fas fa-user-friends"></i>
+                <span>Grup</span>
+            </div>
+        </div>
+
+        <!-- Contacts -->
+        <div class="contacts-list" id="contactsList">
+            <div class="empty-state">
+                <i class="fas fa-user-plus"></i>
+                <h3>Tambahkan teman baru</h3>
+                <p>Klik ikon + untuk menambahkan teman chat</p>
+            </div>
         </div>
     </div>
 
-    <!-- Main App -->
-    <div id="mainApp" class="app-container hidden">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="profile" onclick="showProfile()">
-                    <img id="sidebarAvatar" src="" alt="Profile">
-                    <div>
-                        <div id="sidebarUsername">-</div>
-                        <div id="sidebarStatus">offline</div>
-                    </div>
-                </div>
-                <div class="sidebar-actions">
-                    <i class="fas fa-search" onclick="toggleSearch()"></i>
-                    <i class="fas fa-plus" onclick="showAddFriend()"></i>
-                </div>
-            </div>
-
-            <!-- Search -->
-            <div id="searchContainer" class="search-container hidden">
-                <input type="text" id="searchInput" placeholder="Cari teman..." oninput="searchFriends()">
-                <div id="searchResults"></div>
-            </div>
-
-            <!-- Friends List -->
-            <div class="friends-list" id="friendsList">
-                <div class="no-friends">Belum ada teman</div>
-            </div>
-        </div>
-
-        <!-- Chat Area -->
-        <div class="chat-container">
-            <div class="chat-header" id="chatHeader" style="display: none;">
-                <div class="chat-user-info">
-                    <img id="chatAvatar" src="" alt="">
-                    <div>
-                        <div id="chatUsername">-</div>
-                        <div id="chatStatus">offline</div>
-                    </div>
-                </div>
-                <div class="chat-actions">
-                    <i class="fas fa-phone" onclick="startCall('voice')"></i>
-                    <i class="fas fa-video" onclick="startCall('video')"></i>
-                    <i class="fas fa-paperclip" onclick="showFilePicker()"></i>
-                </div>
-            </div>
-
-            <div class="messages-container" id="messagesContainer">
-                <div class="no-chat">Pilih teman untuk mulai chat</div>
-            </div>
-
-            <div class="chat-input-container">
-                <div class="typing-indicator" id="typingIndicator"></div>
-                <div class="chat-input">
-                    <input type="text" id="messageInput" placeholder="Ketik pesan..." onkeypress="handleKeyPress(event)">
-                    <button onclick="sendMessage()">
-                        <i class="fas fa-paper-plane"></i>
+    <!-- Main Chat -->
+    <div class="main-chat" id="mainChat">
+        <div class="welcome-screen">
+            <div class="welcome-content">
+                <img src="https://via.placeholder.com/100x100/00c300/FFFFFF?text=LINE" alt="LINE" class="welcome-logo">
+                <h1>LINE</h1>
+                <h2>Pilih teman untuk memulai chat</h2>
+                <div class="quick-actions">
+                    <button class="quick-btn primary" onclick="showNewChat()">
+                        <i class="fas fa-plus"></i> Tambah Teman
                     </button>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Profile Modal -->
-        <div id="profileModal" class="modal hidden">
-            <div class="modal-content profile-modal">
-                <div class="profile-header">
-                    <img id="profileAvatar" src="" alt="Profile">
-                    <div class="profile-info">
-                        <h2 id="profileUsername">-</h2>
-                        <div id="profileStatus">offline</div>
-                    </div>
-                </div>
-                <div class="profile-details">
-                    <div class="detail-item">
-                        <label>Email</label>
-                        <input type="email" id="profileEmail">
-                    </div>
-                    <div class="detail-item">
-                        <label>Telepon</label>
-                        <input type="tel" id="profilePhone">
-                    </div>
-                    <button onclick="updateProfile()">Simpan</button>
-                </div>
+    <!-- Add Friend Modal -->
+    <div class="modal" id="addFriendModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Tambah Teman Baru</h3>
+                <span class="close" onclick="closeNewChat()">&times;</span>
             </div>
-        </div>
-
-        <!-- Add Friend Modal -->
-        <div id="addFriendModal" class="modal hidden">
-            <div class="modal-content">
-                <h3>Tambahkan Teman</h3>
-                <input type="text" id="friendSearch" placeholder="Cari username atau email...">
-                <div id="friendResults"></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Nama Teman</label>
+                    <input type="text" id="newFriendName" placeholder="Masukkan nama teman">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-id-badge"></i> ID LINE</label>
+                    <input type="text" id="friendId" placeholder="@example123">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-image"></i> Foto Profil</label>
+                    <input type="file" id="friendAvatar" accept="image/*">
+                    <div class="avatar-preview" id="avatarPreview"></div>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="isGroup"> Buat Grup Chat
+                    </label>
+                </div>
+                <button class="btn-primary full-width" onclick="lineApp.addNewFriend()">
+                    <i class="fas fa-check"></i> Tambah Teman
+                </button>
             </div>
         </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- User Menu -->
+    <div class="user-menu" id="userMenu">
+        <div class="menu-item" onclick="lineApp.changeProfile()">
+            <i class="fas fa-user-edit"></i> Edit Profil
+        </div>
+        <div class="menu-item" onclick="showUserList()">
+            <i class="fas fa-list"></i> Daftar Teman
+        </div>
+        <div class="menu-item" onclick="lineApp.clearAllChats()">
+            <i class="fas fa-trash-alt"></i> Hapus Semua Chat
+        </div>
+        <div class="menu-item danger" onclick="lineApp.clearAllData()">
+            <i class="fas fa-bomb"></i> Reset Semua Data
+        </div>
+    </div>
+
+    <!-- Friend List Modal -->
+    <div class="modal" id="friendListModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> Daftar Teman</h3>
+                <span class="close" onclick="closeFriendList()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="friendListContent" class="friend-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="editProfileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> Edit Profil</h3>
+                <span class="close" onclick="closeEditProfile()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nama</label>
+                    <input type="text" id="editUserName" placeholder="Nama Anda">
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editStatus">
+                        <option value="● Online">● Online</option>
+                        <option value="● Mengetik...">● Mengetik...</option>
+                        <option value="● Offline">● Offline</option>
+                    </select>
+                </div>
+                <button class="btn-primary full-width" onclick="lineApp.saveProfile()">
+                    Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

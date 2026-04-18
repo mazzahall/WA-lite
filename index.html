@@ -173,6 +173,23 @@
     </div>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <div id="callScreen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; color: white;">
+    <h2 id="callStatus" style="margin-bottom: 20px;">Memanggil...</h2>
+    
+    <div style="position: relative; width: 90%; max-width: 400px; aspect-ratio: 3/4; background: #000; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+      <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+      
+      <video id="localVideo" autoplay playsinline muted style="width: 100px; height: 150px; position: absolute; bottom: 15px; right: 15px; background: #444; border-radius: 10px; object-fit: cover; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></video>
+    </div>
+
+    <div style="margin-top: 30px; display: flex; gap: 30px;">
+      <button id="answerBtn" style="display:none; width: 60px; height: 60px; border-radius: 50%; background: #00c300; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fas fa-phone"></i></button>
+      
+      <button id="endCallBtn" onclick="lineApp.endCall()" style="width: 60px; height: 60px; border-radius: 50%; background: #ff3b30; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

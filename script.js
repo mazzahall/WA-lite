@@ -42,6 +42,7 @@ const lineApp = {
       this.activateID();
       this.setupMyAvatar();
       this.loadFriends();
+      this.initPeerJS(); // <--- TAMBAHKAN BARIS INI
 
       // Bikin status jadi beneran ONLINE di Database!
       const userStatusRef = database.ref('users/' + this.currentUser + '/isOnline');
@@ -268,8 +269,8 @@ const lineApp = {
         <div class="contact-last-message" style="font-size: 12px; color: ${statusColor};">${statusText}</div>
       </div>
       <div class="chat-actions">
-        <i class="fas fa-phone"></i>
-        <i class="fas fa-video"></i>
+        <i class="fas fa-phone" onclick="lineApp.startCall(false)" style="cursor:pointer;" title="Voice Call"></i>
+        <i class="fas fa-video" onclick="lineApp.startCall(true)" style="cursor:pointer;" title="Video Call"></i>
         <i class="fas fa-info-circle"></i>
       </div>
     `;
@@ -360,6 +361,102 @@ const lineApp = {
   closeModal(id) {
     const modal = document.getElementById(id);
     if(modal) modal.style.display = 'none';
+  },
+
+  // ==========================================
+  // FITUR PANGGILAN SUARA & VIDEO (PEERJS)
+  // ==========================================
+  initPeerJS() {
+    // Kita jadikan username sebagai ID telepon
+    this.peer = new Peer(this.currentUser); 
+    
+    // Dengarkan kalau ada telepon masuk dari teman
+    this.peer.on('call', (call) => {
+      this.currentCall = call;
+      document.getElementById('callScreen').style.display = 'flex';
+      document.getElementById('callStatus').innerText = call.peer + " menelepon...";
+      document.getElementById('answerBtn').style.display = 'block'; // Munculin tombol angkat telpon
+
+      document.getElementById('answerBtn').onclick = () => {
+        this.answerCall(call);
+      };
+    });
+  },
+
+  async getMedia(isVideo) {
+    try {
+      // Minta izin ke browser untuk pakai Kamera & Mic
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: isVideo,
+        audio: true
+      });
+      this.localStream = stream;
+      
+      const localVideo = document.getElementById('localVideo');
+      localVideo.srcObject = stream;
+      localVideo.style.display = isVideo ? 'block' : 'none'; // Sembunyiin kamera kalau cuma voice call
+      
+      return stream;
+    } catch (err) {
+      alert('Gagal! Pastikan kamu memberikan izin untuk mengakses Kamera dan Mikrofon di browser.');
+      return null;
+    }
+  },
+
+  async startCall(isVideo) {
+    if (!this.currentChat) return alert('Buka chat teman dulu!');
+    if (!this.currentChat.isOnline) return alert('Teman sedang offline, tidak bisa ditelepon.');
+    
+    const stream = await this.getMedia(isVideo);
+    if (!stream) return;
+
+    document.getElementById('callScreen').style.display = 'flex';
+    document.getElementById('callStatus').innerText = "Memanggil " + this.currentChat.name + "...";
+    document.getElementById('answerBtn').style.display = 'none'; 
+
+    // Mulai nelpon ke username teman
+    const call = this.peer.call(this.currentChat.username, stream);
+    this.currentCall = call;
+
+    // Kalau diangkat, tampilin video/suara teman
+    call.on('stream', (remoteStream) => {
+      document.getElementById('callStatus').innerText = isVideo ? "Video Call Tersambung" : "Voice Call Tersambung";
+      document.getElementById('remoteVideo').srcObject = remoteStream;
+    });
+
+    call.on('close', () => this.endCall());
+  },
+
+  async answerCall(call) {
+    document.getElementById('answerBtn').style.display = 'none';
+    document.getElementById('callStatus').innerText = "Menyambungkan...";
+
+    // Aktifkan kamera & mic kita
+    const stream = await this.getMedia(true); 
+    if (!stream) return;
+
+    call.answer(stream); // Kirim stream kita ke penelpon
+
+    call.on('stream', (remoteStream) => {
+      document.getElementById('callStatus').innerText = "Tersambung";
+      document.getElementById('remoteVideo').srcObject = remoteStream;
+    });
+
+    call.on('close', () => this.endCall());
+  },
+
+  endCall() {
+    if (this.currentCall) this.currentCall.close(); // Tutup koneksi
+    if (this.localStream) {
+      // Matikan lampu indikator kamera/mic di laptop/HP
+      this.localStream.getTracks().forEach(track => track.stop()); 
+    }
+    
+    document.getElementById('callScreen').style.display = 'none';
+    document.getElementById('remoteVideo').srcObject = null;
+    document.getElementById('localVideo').srcObject = null;
+    this.currentCall = null;
+    this.localStream = null;
   }
 };
 

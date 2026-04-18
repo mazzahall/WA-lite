@@ -20,15 +20,16 @@
 </head>
 <body>
     <div id="authScreen" class="auth-screen">
-    <div class="auth-box">
-      <div class="auth-logo"><i class="fab fa-line"></i></div>
-      <h2 id="authTitle">Login ke CHATRA</h2>
-      <input type="text" id="authUsername" placeholder="Username">
-      <input type="password" id="authPassword" placeholder="Password">
-      <button onclick="lineApp.handleAuth()" id="authBtn">Masuk</button>
-      <p onclick="lineApp.toggleAuthMode()" id="authToggleText">Belum punya akun? Daftar di sini</p>
+        <div class="auth-box">
+            <div class="auth-logo"><i class="fab fa-line"></i></div>
+            <h2 id="authTitle">Login ke CHATRA</h2>
+            <input type="text" id="authUsername" placeholder="Username">
+            <input type="password" id="authPassword" placeholder="Password">
+            <button onclick="lineApp.handleAuth()" id="authBtn">Masuk</button>
+            <p onclick="lineApp.toggleAuthMode()" id="authToggleText">Belum punya akun? Daftar di sini</p>
+        </div>
     </div>
-  </div>
+    
     <div class="mobile-overlay" id="mobileOverlay"></div>
 
     <div class="sidebar" id="sidebar">
@@ -92,11 +93,9 @@
             </div>
         </div>
 
-        <div class="chat-header" style="display: none;">
-            </div>
+        <div class="chat-header" style="display: none;"></div>
         
-        <div class="messages-container" style="display: none; flex: 1; overflow-y: auto; padding: 20px;">
-            </div>
+        <div class="messages-container" style="display: none; flex: 1; overflow-y: auto; padding: 20px;"></div>
 
         <div class="message-input" style="display: none; padding: 15px; background: #fff; border-top: 1px solid #ddd; align-items: center; gap: 10px;">
             <input type="text" id="messageInput" placeholder="Ketik pesan..." style="flex: 1; padding: 12px 15px; border-radius: 20px; border: 1px solid #ddd; outline: none;">
@@ -130,16 +129,16 @@
 
     <div class="user-menu" id="userMenu" style="display: none; position: absolute; right: 20px; top: 60px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; z-index: 100;">
         <div class="menu-item" onclick="lineApp.changeProfile()" style="padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee;"><i class="fas fa-user-edit"></i> Edit Profil</div>
-        <div class="menu-item" onclick="showUserList()" style="padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee;"><i class="fas fa-list"></i> Daftar Teman</div>
-        <div class="menu-item" onclick="lineApp.clearAllChats()" style="padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee;"><i class="fas fa-trash-alt"></i> Hapus Semua Chat</div>
-        <div class="menu-item danger" onclick="lineApp.clearAllData()" style="padding: 15px 20px; cursor: pointer; color: red;"><i class="fas fa-bomb"></i> Reset Semua Data</div>
+        <div class="menu-item" onclick="if(typeof showUserList === 'function') showUserList(); else alert('Fitur segera hadir!');" style="padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee;"><i class="fas fa-list"></i> Daftar Teman</div>
+        <div class="menu-item" onclick="if(typeof lineApp.clearAllChats === 'function') lineApp.clearAllChats(); else alert('Fitur segera hadir!');" style="padding: 15px 20px; cursor: pointer; border-bottom: 1px solid #eee;"><i class="fas fa-trash-alt"></i> Hapus Semua Chat</div>
+        <div class="menu-item danger" onclick="if(typeof lineApp.clearAllData === 'function') lineApp.clearAllData(); else alert('Fitur segera hadir!');" style="padding: 15px 20px; cursor: pointer; color: red;"><i class="fas fa-bomb"></i> Reset Semua Data</div>
     </div>
 
     <div class="modal" id="friendListModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center;">
         <div class="modal-content" style="background: #fff; width: 90%; max-width: 400px; border-radius: 10px; padding: 20px;">
             <div class="modal-header" style="display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
                 <h3 style="margin: 0;"><i class="fas fa-users"></i> Daftar Teman</h3>
-                <span class="close" onclick="closeFriendList()" style="cursor: pointer; font-size: 20px;">&times;</span>
+                <span class="close" onclick="if(typeof closeFriendList === 'function') closeFriendList(); else this.parentElement.parentElement.parentElement.style.display='none';" style="cursor: pointer; font-size: 20px;">&times;</span>
             </div>
             <div class="modal-body" id="friendListContent" style="max-height: 300px; overflow-y: auto;">
             </div>
@@ -171,25 +170,25 @@
             </div>
         </div>
     </div>
+
+    <div id="callScreen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; color: white;">
+        <h2 id="callStatus" style="margin-bottom: 20px;">Memanggil...</h2>
+        
+        <div style="position: relative; width: 90%; max-width: 400px; aspect-ratio: 3/4; background: #000; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+            <video id="localVideo" autoplay playsinline muted style="width: 100px; height: 150px; position: absolute; bottom: 15px; right: 15px; background: #444; border-radius: 10px; object-fit: cover; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></video>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; gap: 30px;">
+            <button id="answerBtn" style="display:none; width: 60px; height: 60px; border-radius: 50%; background: #00c300; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fas fa-phone"></i></button>
+            <button id="endCallBtn" onclick="lineApp.endCall()" style="width: 60px; height: 60px; border-radius: 50%; background: #ff3b30; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <div id="callScreen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #222; z-index: 9999; flex-direction: column; align-items: center; justify-content: center; color: white;">
-    <h2 id="callStatus" style="margin-bottom: 20px;">Memanggil...</h2>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     
-    <div style="position: relative; width: 90%; max-width: 400px; aspect-ratio: 3/4; background: #000; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-      <video id="remoteVideo" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-      
-      <video id="localVideo" autoplay playsinline muted style="width: 100px; height: 150px; position: absolute; bottom: 15px; right: 15px; background: #444; border-radius: 10px; object-fit: cover; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);"></video>
-    </div>
-
-    <div style="margin-top: 30px; display: flex; gap: 30px;">
-      <button id="answerBtn" style="display:none; width: 60px; height: 60px; border-radius: 50%; background: #00c300; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fas fa-phone"></i></button>
-      
-      <button id="endCallBtn" onclick="lineApp.endCall()" style="width: 60px; height: 60px; border-radius: 50%; background: #ff3b30; border: none; color: white; font-size: 24px; cursor: pointer;"><i class="fas fa-phone-slash"></i></button>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

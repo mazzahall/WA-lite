@@ -866,6 +866,11 @@ body {
   .welcome-screen {
     display: none !important;
   }
+
+  /* Sembunyikan logo header kalau dibuka di HP biar hemat tempat */
+  .desktop-logo {
+    display: none !important;
+  }
 }
 
 /* ==========================================

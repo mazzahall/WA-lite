@@ -138,6 +138,18 @@ const lineApp = {
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
     });
+
+    // --- TAMBAHAN KODE UNTUK TOMBOL GAMBAR ---
+    const imageInput = document.getElementById('chatImageInput');
+    if(imageInput) {
+      imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          this.sendImage(file);
+          e.target.value = ''; // Reset input biar bisa kirim gambar yang sama lagi
+        }
+      });
+    }
   },
 
   loadFriends() {
@@ -300,9 +312,16 @@ const lineApp = {
       const isSentByMe = msg.sender === this.currentUser;
       const readText = this.currentChat.isOnline ? 'Dibaca' : 'baca'; 
       
+      // --- CEK APAKAH INI GAMBAR ATAU TEKS ---
+      let isiPesan = msg.text;
+      if (msg.imageUrl) {
+        // Kalau ada gambar, tampilkan tag <img>
+        isiPesan = `<img src="${msg.imageUrl}" style="max-width: 220px; width: 100%; border-radius: 8px; cursor: pointer; display: block; margin-bottom: 5px;" onclick="window.open('${msg.imageUrl}', '_blank')">`;
+      }
+      
       return `
       <div class="message ${isSentByMe ? 'sent' : 'received'}">
-        ${msg.text}
+        ${isiPesan}
         <div class="message-meta">
           ${isSentByMe ? `<span class="message-read">${readText}</span>` : ''}
           <span class="message-time">${msg.time}</span>
@@ -328,6 +347,36 @@ const lineApp = {
     });
 
     input.value = ''; 
+  },
+
+  sendImage(file) {
+    if (!file || !this.currentChatNode) return;
+    
+    // Ubah teks input sementara biar user tau lagi proses
+    const input = document.getElementById('messageInput');
+    const oriPlaceholder = input.placeholder;
+    input.placeholder = "Mengirim gambar...";
+    input.disabled = true;
+
+    // Baca gambar dan jadikan Base64
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64Img = e.target.result;
+      const msgRef = database.ref('chats/' + this.currentChatNode).push();
+      
+      msgRef.set({
+        sender: this.currentUser,
+        text: '', // Kosongkan teks karena yang dikirim gambar
+        imageUrl: base64Img, // Simpan data gambarnya di sini
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+      }).then(() => {
+        input.placeholder = oriPlaceholder;
+        input.disabled = false;
+        input.focus();
+      });
+    };
+    reader.readAsDataURL(file);
   },
 
   filterContacts(query) {

@@ -833,7 +833,9 @@ body {
     top: 0;
     left: 100%; /* Ngumpet di luar layar sebelah kanan */
     width: 100% !important;
-    height: 100vh;
+    height: 100dvh !important; /* INI KUNCINYA: pakai dvh biar pas keyboard naik dia ikut naik */
+    display: flex !important;
+    flex-direction: column !important; /* Bikin susunan ruang chat dari atas ke bawah */
     z-index: 1000;
     background-color: white;
     transition: left 0.3s ease-in-out; /* Efek animasi geser smooth */
@@ -844,13 +846,32 @@ body {
     left: 0; 
   }
 
-  /* 4. Teks welcome gede disembunyiin di HP biar hemat tempat */
+  /* 4. Area isi chat dibikin bisa di-scroll & nekan kolom input ke bawah */
+  .messages-container {
+    flex: 1 !important; 
+    overflow-y: auto !important; 
+    padding-bottom: 10px;
+  }
+
+  /* 5. Kolom ketik pesan nempel manis di paling bawah, ikutin keyboard */
+  .message-input {
+    position: relative !important; 
+    bottom: auto !important; 
+    width: 100%;
+    z-index: 10;
+    padding-bottom: env(safe-area-inset-bottom); /* Penting buat iPhone biar nggak nabrak garis bawah */
+  }
+
+  /* 6. Teks welcome gede disembunyiin di HP biar hemat tempat */
   .welcome-screen {
     display: none !important;
   }
 }
 
-/* Sembunyikan tombol "Back" kalau dibuka di Laptop/PC */
+/* ==========================================
+   TAMPILAN KHUSUS LAPTOP/PC
+   ========================================== */
+/* Sembunyikan tombol "Back" (<) kalau dibuka di Laptop/PC */
 @media screen and (min-width: 769px) {
   .back-btn-hp { display: none !important; }
 }

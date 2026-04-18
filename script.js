@@ -256,7 +256,11 @@ openChat(friendUsername) {
     const statusText = this.currentChat.isOnline ? 'Online' : 'Offline';
     const statusColor = this.currentChat.isOnline ? '#00c300' : '#999999';
 
+    // Disini gw nyelipin tombol BACK (<) di pojok kiri atas
     header.innerHTML = `
+      <div class="back-btn-hp" onclick="lineApp.tutupChatHp()" style="font-size: 20px; cursor: pointer; margin-right: 15px; color: #555;">
+        <i class="fas fa-arrow-left"></i>
+      </div>
       <img src="${this.currentChat.avatar}" alt="${this.currentChat.name}" class="contact-avatar" style="object-fit: cover;">
       <div class="contact-info" style="flex: 1;">
         <div class="contact-name" style="font-weight: bold;">${this.currentChat.name}</div>
@@ -268,6 +272,12 @@ openChat(friendUsername) {
         <i class="fas fa-info-circle"></i>
       </div>
     `;
+    tutupChatHp() {
+    const mainChatArea = document.querySelector('.main-chat') || document.getElementById('mainChat');
+    if (mainChatArea) {
+      mainChatArea.classList.remove('buka-di-hp'); // Menggeser layar chat kembali ke kanan
+    }
+  },
   },
 
   renderMessages(msgsObj) {

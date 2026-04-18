@@ -26,35 +26,48 @@ const lineApp = {
   currentUser: null,
   currentChatNode: null,
   isLoginMode: true,
-  peer: null,        // Untuk engine Call
-  currentCall: null, // Panggilan yang sedang aktif
-  localStream: null, // Kamera/Mic kita
+  peer: null,
+  currentCall: null,
+  localStream: null,
 
   init() {
     this.checkAuth();
   },
 
-  // --- FITUR LOGIN & REGISTER (ONLINE) ---
+  // --- FITUR LOGIN & REGISTER (ANTI-CRASH) ---
   checkAuth() {
-    const loggedInUser = localStorage.getItem('lineAppLoggedIn');
-    if (loggedInUser) {
-      this.currentUser = loggedInUser;
-      document.getElementById('authScreen').style.display = 'none';
-      
-      this.setupEventListeners();
-      this.activateID();
-      this.setupMyAvatar();
-      
-      // Jalankan fitur utama
-      this.loadFriends();
-      this.initPeerJS(); 
+    try {
+      const loggedInUser = localStorage.getItem('lineAppLoggedIn');
+      if (loggedInUser) {
+        this.currentUser = loggedInUser;
+        document.getElementById('authScreen').style.display = 'none';
+        
+        this.setupEventListeners();
+        this.activateID();
+        this.setupMyAvatar();
+        
+        // Jalankan fitur utama
+        this.loadFriends();
+        
+        // Pisahkan PeerJS agar kalau error, web nggak ikut mogok
+        try {
+            this.initPeerJS(); 
+        } catch (peerErr) {
+            console.error("Gagal load fitur telepon:", peerErr);
+        }
 
-      // Bikin status jadi beneran ONLINE di Database
-      const userStatusRef = database.ref('users/' + this.currentUser + '/isOnline');
-      userStatusRef.set(true);
-      userStatusRef.onDisconnect().set(false);
-    } else {
-      document.getElementById('authScreen').style.display = 'flex';
+        // Update status ONLINE di Database
+        const userStatusRef = database.ref('users/' + this.currentUser + '/isOnline');
+        userStatusRef.set(true).catch(err => console.error("Error update status:", err));
+        userStatusRef.onDisconnect().set(false);
+      } else {
+        document.getElementById('authScreen').style.display = 'flex';
+      }
+    } catch (error) {
+      console.error("Gagal memuat sesi:", error);
+      localStorage.removeItem('lineAppLoggedIn');
+      alert("Terjadi kesalahan pada sesi kamu, silakan login ulang.");
+      location.reload();
     }
   },
 
@@ -127,7 +140,6 @@ const lineApp = {
     });
   },
 
-  // --- AMBIL DATA TEMAN ---
   loadFriends() {
     database.ref('user_friends/' + this.currentUser).on('value', (snap) => {
       const friendsData = snap.val() || {};
@@ -219,7 +231,8 @@ const lineApp = {
     return [user1, user2].sort().join('_');
   },
 
-openChat(friendUsername) {
+  // --- LOGIKA BUKA CHAT & MOBILE SUPPORT ---
+  openChat(friendUsername) {
     const friend = this.friends.find(f => f.username === friendUsername);
     if (!friend) return;
     
@@ -233,12 +246,11 @@ openChat(friendUsername) {
     
     this.renderChatHeader();
 
-    // --- LOGIKA GESER UNTUK HP ---
+    // Logika tarik layar chat untuk HP
     if (window.innerWidth <= 768) {
-      // Cari elemen main-chat (antisipasi pakai class atau id)
       const mainChatArea = document.querySelector('.main-chat') || document.getElementById('mainChat');
       if (mainChatArea) {
-        mainChatArea.classList.add('buka-di-hp'); // Menarik layar chat ke tengah
+        mainChatArea.classList.add('buka-di-hp'); 
       }
     }
 
@@ -249,14 +261,13 @@ openChat(friendUsername) {
       this.renderMessages(msgs);
     });
   },
-  
+
   renderChatHeader() {
     if (!this.currentChat) return;
     const header = document.querySelector('.chat-header');
     const statusText = this.currentChat.isOnline ? 'Online' : 'Offline';
     const statusColor = this.currentChat.isOnline ? '#00c300' : '#999999';
 
-    // Disini gw nyelipin tombol BACK (<) di pojok kiri atas
     header.innerHTML = `
       <div class="back-btn-hp" onclick="lineApp.tutupChatHp()" style="font-size: 20px; cursor: pointer; margin-right: 15px; color: #555;">
         <i class="fas fa-arrow-left"></i>
@@ -272,12 +283,13 @@ openChat(friendUsername) {
         <i class="fas fa-info-circle"></i>
       </div>
     `;
-    tutupChatHp() {
+  },
+
+  tutupChatHp() {
     const mainChatArea = document.querySelector('.main-chat') || document.getElementById('mainChat');
     if (mainChatArea) {
-      mainChatArea.classList.remove('buka-di-hp'); // Menggeser layar chat kembali ke kanan
+      mainChatArea.classList.remove('buka-di-hp'); 
     }
-  },
   },
 
   renderMessages(msgsObj) {

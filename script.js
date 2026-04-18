@@ -18,7 +18,7 @@ if (!firebase.apps.length) {
 const database = firebase.database();
 
 // ==========================================
-// 2. LOGIKA APLIKASI (REAL-TIME ONLINE)
+// 2. LOGIKA UTAMA APLIKASI
 // ==========================================
 const lineApp = {
   friends: [],
@@ -26,6 +26,10 @@ const lineApp = {
   currentUser: null,
   currentChatNode: null,
   isLoginMode: true,
+  chatListeners: {}, // Untuk pantau notifikasi
+  peer: null,        // Untuk engine Call
+  currentCall: null, // Panggilan yang sedang aktif
+  localStream: null, // Kamera/Mic kita
 
   init() {
     this.checkAuth();
@@ -41,15 +45,15 @@ const lineApp = {
       this.setupEventListeners();
       this.activateID();
       this.setupMyAvatar();
+      
+      // Jalankan fitur utama
       this.loadFriends();
       this.initPeerJS(); 
-      this.initNotifications(); // <--- TAMBAHKAN BARIS INI
+      this.initNotifications(); 
 
-      // Bikin status jadi beneran ONLINE di Database!
+      // Bikin status jadi beneran ONLINE di Database
       const userStatusRef = database.ref('users/' + this.currentUser + '/isOnline');
       userStatusRef.set(true);
-      
-      // Kalau browser ditutup, otomatis kasih tau server buat ubah ke OFFLINE
       userStatusRef.onDisconnect().set(false);
     } else {
       document.getElementById('authScreen').style.display = 'flex';
@@ -74,7 +78,6 @@ const lineApp = {
     const userData = snapshot.val();
 
     if (this.isLoginMode) {
-      // LOGIN
       if (userData && userData.password === pass) {
         localStorage.setItem('lineAppLoggedIn', user);
         location.reload(); 
@@ -82,14 +85,10 @@ const lineApp = {
         alert('Username atau Password salah!');
       }
     } else {
-      // REGISTER
       if (userData) {
         alert('Username sudah dipakai, coba nama lain!');
       } else {
-        // Generate ID LINE Random
         const myID = 'LINE-' + Math.random().toString(36).substr(2, 6).toUpperCase();
-        
-        // Simpan Akun Baru ke Server
         await userRef.set({
           password: pass,
           myID: myID,
@@ -97,8 +96,6 @@ const lineApp = {
           isOnline: false,
           avatar: 'https://ui-avatars.com/api/?name=' + user + '&background=00c300&color=fff'
         });
-        
-        // Simpan indeks ID buat sistem pencarian teman
         await database.ref('userIds/' + myID).set(user);
         
         alert('Akun berhasil dibuat! Silakan Login.');
@@ -110,14 +107,12 @@ const lineApp = {
 
   logout() {
     if (confirm('Yakin ingin keluar?')) {
-      // Set status Offline sebelum keluar
       database.ref('users/' + this.currentUser + '/isOnline').set(false).then(() => {
         localStorage.removeItem('lineAppLoggedIn'); 
         location.reload();
       });
     }
   },
-  // -----------------------------
 
   setupEventListeners() {
     document.getElementById('searchInput').addEventListener('input', (e) => {
@@ -132,21 +127,10 @@ const lineApp = {
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
     });
-    // Add Friend button listener
-    const addFriendBtn = document.querySelector('[onclick="lineApp.addNewFriend()"]');
-    if (addFriendBtn) {
-      addFriendBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.addNewFriend();
-      });
-    }
   },
 
-  // --- AMBIL DATA TEMAN SECARA REAL-TIME DARI SERVER ---
   // --- AMBIL DATA TEMAN & PANTAU PESAN MASUK ---
   loadFriends() {
-    if (!this.chatListeners) this.chatListeners = {}; // Tempat nyimpen status pantauan chat
-
     database.ref('user_friends/' + this.currentUser).on('value', (snap) => {
       const friendsData = snap.val() || {};
       const friendUsernames = Object.keys(friendsData);
@@ -182,54 +166,45 @@ const lineApp = {
               this.renderChatHeader();
             }
 
-            // --- LOGIKA MENDETEKSI NOTIFIKASI PESAN BARU ---
+            // MENDETEKSI NOTIFIKASI PESAN BARU
             const chatNode = this.getChatNodeId(this.currentUser, fUser);
             
-            // Pastikan kita nggak mantau chat yang sama dua kali
             if (!this.chatListeners[chatNode]) {
               this.chatListeners[chatNode] = true;
               
               let isNewMessage = false;
               const chatRef = database.ref('chats/' + chatNode);
               
-              // Tunggu semua pesan lama selesai dimuat
               chatRef.once('value', () => { isNewMessage = true; });
 
-              // Pantau setiap ada 1 pesan baru
               chatRef.on('child_added', (msgSnap) => {
-                if (!isNewMessage) return; // Abaikan pesan lama saat web baru dibuka
+                if (!isNewMessage) return; 
                 
                 const msg = msgSnap.val();
-                // Kalau ada pesan masuk dan BUKAN dari kita sendiri, panggil notifikasi!
                 if (msg && msg.sender !== this.currentUser) {
                   this.showNotification(friendObj.name, msg.text, friendObj.username);
                 }
               });
             }
-            // ----------------------------------------------
           }
         });
       });
     });
   },
 
-  // --- ADD FRIEND (VALIDASI ONLINE) ---
   async addNewFriend() {
     const idInput = document.getElementById('friendId').value.trim();
     if (!idInput) return alert('Masukkan ID LINE!');
 
-    // Cek di server, siapa pemilik ID ini?
     const idSnap = await database.ref('userIds/' + idInput).once('value');
     const friendUsername = idSnap.val();
 
     if (!friendUsername) return alert('Gagal! Teman dengan ID tersebut tidak ditemukan.');
     if (friendUsername === this.currentUser) return alert('Kamu tidak bisa menambahkan diri sendiri!');
 
-    // Cek apakah udah berteman
     const isFriend = await database.ref('user_friends/' + this.currentUser + '/' + friendUsername).once('value');
     if (isFriend.exists()) return alert('Dia sudah ada di daftar temanmu!');
 
-    // Tambahkan otomatis jadi teman (Mutual / 2 arah)
     await database.ref('user_friends/' + this.currentUser + '/' + friendUsername).set(true);
     await database.ref('user_friends/' + friendUsername + '/' + this.currentUser).set(true);
 
@@ -263,9 +238,7 @@ const lineApp = {
     }
   },
 
-  // --- LOGIKA RUANG CHAT ---
   getChatNodeId(user1, user2) {
-    // Biar ID ruang chat-nya unik dan sama buat 2 orang (misal Andi & Budi jadi andi_budi)
     return [user1, user2].sort().join('_');
   },
 
@@ -283,9 +256,8 @@ const lineApp = {
     
     this.renderChatHeader();
 
-    // Pantau Pesan Masuk secara Real-Time di Ruang Chat ini
     const msgsRef = database.ref('chats/' + this.currentChatNode);
-    msgsRef.off(); // Matikan pantauan chat sebelumnya (kalau ganti teman)
+    msgsRef.off(); 
     msgsRef.on('value', snap => {
       const msgs = snap.val() || {};
       this.renderMessages(msgs);
@@ -314,12 +286,11 @@ const lineApp = {
 
   renderMessages(msgsObj) {
     const messagesContainer = document.querySelector('.messages-container');
-    // Urutkan pesan berdasarkan waktu dikirim
     const msgsArray = Object.values(msgsObj).sort((a, b) => a.timestamp - b.timestamp);
     
     messagesContainer.innerHTML = msgsArray.map(msg => {
       const isSentByMe = msg.sender === this.currentUser;
-      const readText = this.currentChat.isOnline ? 'Dibaca' : 'baca'; // Logika Baca tetap berjalan
+      const readText = this.currentChat.isOnline ? 'Dibaca' : 'baca'; 
       
       return `
       <div class="message ${isSentByMe ? 'sent' : 'received'}">
@@ -332,7 +303,7 @@ const lineApp = {
       `;
     }).join('');
     
-    messagesContainer.scrollTop = messagesContainer.scrollHeight; // Auto scroll ke bawah
+    messagesContainer.scrollTop = messagesContainer.scrollHeight; 
   },
 
   sendMessage() {
@@ -340,7 +311,6 @@ const lineApp = {
     const text = input.value.trim();
     if (!text || !this.currentChatNode) return;
 
-    // Kirim pesan ke server Firebase
     const msgRef = database.ref('chats/' + this.currentChatNode).push();
     msgRef.set({
       sender: this.currentUser,
@@ -349,7 +319,7 @@ const lineApp = {
       time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
     });
 
-    input.value = ''; // Kosongin kolom input setelah kirim
+    input.value = ''; 
   },
 
   filterContacts(query) {
@@ -373,18 +343,14 @@ const lineApp = {
   changeProfile() {
     this.closeModal('userMenu');
     this.showModal('editProfileModal');
-    // Ambil nama terbaru dari HTML kita
     document.getElementById('editUserName').value = document.getElementById('currentUser').textContent;
   },
 
   async saveProfile() {
     const name = document.getElementById('editUserName').value;
-    
-    // Update nama di server Firebase
     await database.ref('users/' + this.currentUser).update({
       displayName: name
     });
-    
     document.getElementById('currentUser').textContent = name;
     this.closeModal('editProfileModal');
   },
@@ -400,18 +366,16 @@ const lineApp = {
   },
 
   // ==========================================
-  // FITUR PANGGILAN SUARA & VIDEO (PEERJS)
+  // 3. FITUR PANGGILAN SUARA & VIDEO (PEERJS)
   // ==========================================
   initPeerJS() {
-    // Kita jadikan username sebagai ID telepon
     this.peer = new Peer(this.currentUser); 
     
-    // Dengarkan kalau ada telepon masuk dari teman
     this.peer.on('call', (call) => {
       this.currentCall = call;
       document.getElementById('callScreen').style.display = 'flex';
       document.getElementById('callStatus').innerText = call.peer + " menelepon...";
-      document.getElementById('answerBtn').style.display = 'block'; // Munculin tombol angkat telpon
+      document.getElementById('answerBtn').style.display = 'block'; 
 
       document.getElementById('answerBtn').onclick = () => {
         this.answerCall(call);
@@ -421,7 +385,6 @@ const lineApp = {
 
   async getMedia(isVideo) {
     try {
-      // Minta izin ke browser untuk pakai Kamera & Mic
       const stream = await navigator.mediaDevices.getUserMedia({
         video: isVideo,
         audio: true
@@ -430,7 +393,7 @@ const lineApp = {
       
       const localVideo = document.getElementById('localVideo');
       localVideo.srcObject = stream;
-      localVideo.style.display = isVideo ? 'block' : 'none'; // Sembunyiin kamera kalau cuma voice call
+      localVideo.style.display = isVideo ? 'block' : 'none'; 
       
       return stream;
     } catch (err) {
@@ -450,11 +413,9 @@ const lineApp = {
     document.getElementById('callStatus').innerText = "Memanggil " + this.currentChat.name + "...";
     document.getElementById('answerBtn').style.display = 'none'; 
 
-    // Mulai nelpon ke username teman
     const call = this.peer.call(this.currentChat.username, stream);
     this.currentCall = call;
 
-    // Kalau diangkat, tampilin video/suara teman
     call.on('stream', (remoteStream) => {
       document.getElementById('callStatus').innerText = isVideo ? "Video Call Tersambung" : "Voice Call Tersambung";
       document.getElementById('remoteVideo').srcObject = remoteStream;
@@ -467,11 +428,10 @@ const lineApp = {
     document.getElementById('answerBtn').style.display = 'none';
     document.getElementById('callStatus').innerText = "Menyambungkan...";
 
-    // Aktifkan kamera & mic kita
     const stream = await this.getMedia(true); 
     if (!stream) return;
 
-    call.answer(stream); // Kirim stream kita ke penelpon
+    call.answer(stream); 
 
     call.on('stream', (remoteStream) => {
       document.getElementById('callStatus').innerText = "Tersambung";
@@ -482,9 +442,8 @@ const lineApp = {
   },
 
   endCall() {
-    if (this.currentCall) this.currentCall.close(); // Tutup koneksi
+    if (this.currentCall) this.currentCall.close(); 
     if (this.localStream) {
-      // Matikan lampu indikator kamera/mic di laptop/HP
       this.localStream.getTracks().forEach(track => track.stop()); 
     }
     
@@ -493,54 +452,48 @@ const lineApp = {
     document.getElementById('localVideo').srcObject = null;
     this.currentCall = null;
     this.localStream = null;
-  }
+  },
 
   // ==========================================
-  // FITUR NOTIFIKASI & SUARA
+  // 4. FITUR NOTIFIKASI & SUARA
   // ==========================================
   initNotifications() {
-    // Minta izin ke browser untuk nampilin notifikasi
     if ("Notification" in window && Notification.permission !== "denied" && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
   },
 
   playPopSound() {
-    // Mainkan suara pendek (ting!)
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
     audio.play().catch(e => console.log("Suara diblokir browser:", e));
   },
 
   showNotification(senderName, text, senderUsername) {
-    // 1. Cek apakah kita lagi buka chat sama orang ini di tab yang aktif
     const isChatActive = (document.visibilityState === 'visible' && this.currentChat && this.currentChat.username === senderUsername);
     
-    // Kalau chatnya lagi dibuka, cukup bunyiin suara aja, nggak usah munculin pop-up notif
     if (isChatActive) {
       this.playPopSound();
       return;
     }
 
-    // 2. Kalau kita lagi di tab lain atau nutup chat, bunyiin suara + munculin Pop-up Desktop!
     this.playPopSound();
 
     if ("Notification" in window && Notification.permission === "granted") {
       const notif = new Notification("Pesan baru dari " + senderName, {
         body: text,
-        icon: "https://cdn-icons-png.flaticon.com/512/124/124034.png" // Bisa diganti URL logo LINE
+        icon: "https://cdn-icons-png.flaticon.com/512/124/124034.png" 
       });
       
-      // Kalau notifikasinya diklik, otomatis balik ke tab web kita dan buka chatnya
       notif.onclick = () => {
         window.focus();
         this.openChat(senderUsername); 
       };
     }
-  },
+  }
 };
 
 // ==========================================
-// 3. FUNGSI BAWAAN UI & PROFIL
+// 5. FUNGSI BAWAAN UI & PROFIL
 // ==========================================
 function openMobileMenu() {
   const sidebar = document.getElementById('sidebar');
@@ -559,7 +512,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 lineApp.activateID = function() {
-  // Ambil ID profil kita dari server
   database.ref('users/' + this.currentUser).once('value').then(snap => {
     const data = snap.val();
     if(data) {
@@ -572,7 +524,6 @@ lineApp.activateID = function() {
 lineApp.setupMyAvatar = function() {
   const profileImg = document.getElementById('profileImg');
   
-  // Ambil foto profil dari server saat login
   database.ref('users/' + this.currentUser + '/avatar').on('value', (snap) => {
     const url = snap.val();
     if (url && profileImg) profileImg.src = url;
@@ -601,7 +552,6 @@ lineApp.setupMyAvatar = function() {
       reader.onload = (event) => {
         const base64Img = event.target.result;
         profileImg.src = base64Img;
-        // Simpan gambar baru ke server Firebase
         database.ref('users/' + lineApp.currentUser).update({
           avatar: base64Img
         });

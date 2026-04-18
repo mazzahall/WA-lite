@@ -26,7 +26,6 @@ const lineApp = {
   currentUser: null,
   currentChatNode: null,
   isLoginMode: true,
-  chatListeners: {}, // Untuk pantau notifikasi
   peer: null,        // Untuk engine Call
   currentCall: null, // Panggilan yang sedang aktif
   localStream: null, // Kamera/Mic kita
@@ -49,7 +48,6 @@ const lineApp = {
       // Jalankan fitur utama
       this.loadFriends();
       this.initPeerJS(); 
-      this.initNotifications(); 
 
       // Bikin status jadi beneran ONLINE di Database
       const userStatusRef = database.ref('users/' + this.currentUser + '/isOnline');
@@ -129,7 +127,7 @@ const lineApp = {
     });
   },
 
-  // --- AMBIL DATA TEMAN & PANTAU PESAN MASUK ---
+  // --- AMBIL DATA TEMAN ---
   loadFriends() {
     database.ref('user_friends/' + this.currentUser).on('value', (snap) => {
       const friendsData = snap.val() || {};
@@ -164,27 +162,6 @@ const lineApp = {
             if (this.currentChat && this.currentChat.username === fUser) {
               this.currentChat = friendObj;
               this.renderChatHeader();
-            }
-
-            // MENDETEKSI NOTIFIKASI PESAN BARU
-            const chatNode = this.getChatNodeId(this.currentUser, fUser);
-            
-            if (!this.chatListeners[chatNode]) {
-              this.chatListeners[chatNode] = true;
-              
-              let isNewMessage = false;
-              const chatRef = database.ref('chats/' + chatNode);
-              
-              chatRef.once('value', () => { isNewMessage = true; });
-
-              chatRef.on('child_added', (msgSnap) => {
-                if (!isNewMessage) return; 
-                
-                const msg = msgSnap.val();
-                if (msg && msg.sender !== this.currentUser) {
-                  this.showNotification(friendObj.name, msg.text, friendObj.username);
-                }
-              });
             }
           }
         });
@@ -452,48 +429,11 @@ const lineApp = {
     document.getElementById('localVideo').srcObject = null;
     this.currentCall = null;
     this.localStream = null;
-  },
-
-  // ==========================================
-  // 4. FITUR NOTIFIKASI & SUARA
-  // ==========================================
-  initNotifications() {
-    if ("Notification" in window && Notification.permission !== "denied" && Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-  },
-
-  playPopSound() {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-    audio.play().catch(e => console.log("Suara diblokir browser:", e));
-  },
-
-  showNotification(senderName, text, senderUsername) {
-    const isChatActive = (document.visibilityState === 'visible' && this.currentChat && this.currentChat.username === senderUsername);
-    
-    if (isChatActive) {
-      this.playPopSound();
-      return;
-    }
-
-    this.playPopSound();
-
-    if ("Notification" in window && Notification.permission === "granted") {
-      const notif = new Notification("Pesan baru dari " + senderName, {
-        body: text,
-        icon: "https://cdn-icons-png.flaticon.com/512/124/124034.png" 
-      });
-      
-      notif.onclick = () => {
-        window.focus();
-        this.openChat(senderUsername); 
-      };
-    }
   }
 };
 
 // ==========================================
-// 5. FUNGSI BAWAAN UI & PROFIL
+// 4. FUNGSI BAWAAN UI & PROFIL
 // ==========================================
 function openMobileMenu() {
   const sidebar = document.getElementById('sidebar');

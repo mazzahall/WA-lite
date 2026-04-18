@@ -42,7 +42,8 @@ const lineApp = {
       this.activateID();
       this.setupMyAvatar();
       this.loadFriends();
-      this.initPeerJS(); // <--- TAMBAHKAN BARIS INI
+      this.initPeerJS(); 
+      this.initNotifications(); // <--- TAMBAHKAN BARIS INI
 
       // Bikin status jadi beneran ONLINE di Database!
       const userStatusRef = database.ref('users/' + this.currentUser + '/isOnline');
@@ -131,10 +132,21 @@ const lineApp = {
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
     });
+    // Add Friend button listener
+    const addFriendBtn = document.querySelector('[onclick="lineApp.addNewFriend()"]');
+    if (addFriendBtn) {
+      addFriendBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.addNewFriend();
+      });
+    }
   },
 
   // --- AMBIL DATA TEMAN SECARA REAL-TIME DARI SERVER ---
+  // --- AMBIL DATA TEMAN & PANTAU PESAN MASUK ---
   loadFriends() {
+    if (!this.chatListeners) this.chatListeners = {}; // Tempat nyimpen status pantauan chat
+
     database.ref('user_friends/' + this.currentUser).on('value', (snap) => {
       const friendsData = snap.val() || {};
       const friendUsernames = Object.keys(friendsData);
@@ -145,7 +157,6 @@ const lineApp = {
         return;
       }
 
-      // Pantau perubahan status (Online/Offline/Foto Profil) tiap teman
       friendUsernames.forEach(fUser => {
         database.ref('users/' + fUser).on('value', (uSnap) => {
           const uData = uSnap.val();
@@ -160,17 +171,42 @@ const lineApp = {
             };
 
             if (existingIndex > -1) {
-              this.friends[existingIndex] = friendObj; // Update kalau udah ada di daftar
+              this.friends[existingIndex] = friendObj; 
             } else {
-              this.friends.push(friendObj); // Masukin baru
+              this.friends.push(friendObj); 
             }
             this.renderContacts();
             
-            // Update header chat otomatis kalau temen lagi chat sama kita trus dia off/on
             if (this.currentChat && this.currentChat.username === fUser) {
               this.currentChat = friendObj;
               this.renderChatHeader();
             }
+
+            // --- LOGIKA MENDETEKSI NOTIFIKASI PESAN BARU ---
+            const chatNode = this.getChatNodeId(this.currentUser, fUser);
+            
+            // Pastikan kita nggak mantau chat yang sama dua kali
+            if (!this.chatListeners[chatNode]) {
+              this.chatListeners[chatNode] = true;
+              
+              let isNewMessage = false;
+              const chatRef = database.ref('chats/' + chatNode);
+              
+              // Tunggu semua pesan lama selesai dimuat
+              chatRef.once('value', () => { isNewMessage = true; });
+
+              // Pantau setiap ada 1 pesan baru
+              chatRef.on('child_added', (msgSnap) => {
+                if (!isNewMessage) return; // Abaikan pesan lama saat web baru dibuka
+                
+                const msg = msgSnap.val();
+                // Kalau ada pesan masuk dan BUKAN dari kita sendiri, panggil notifikasi!
+                if (msg && msg.sender !== this.currentUser) {
+                  this.showNotification(friendObj.name, msg.text, friendObj.username);
+                }
+              });
+            }
+            // ----------------------------------------------
           }
         });
       });
@@ -458,6 +494,49 @@ const lineApp = {
     this.currentCall = null;
     this.localStream = null;
   }
+
+  // ==========================================
+  // FITUR NOTIFIKASI & SUARA
+  // ==========================================
+  initNotifications() {
+    // Minta izin ke browser untuk nampilin notifikasi
+    if ("Notification" in window && Notification.permission !== "denied" && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+  },
+
+  playPopSound() {
+    // Mainkan suara pendek (ting!)
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+    audio.play().catch(e => console.log("Suara diblokir browser:", e));
+  },
+
+  showNotification(senderName, text, senderUsername) {
+    // 1. Cek apakah kita lagi buka chat sama orang ini di tab yang aktif
+    const isChatActive = (document.visibilityState === 'visible' && this.currentChat && this.currentChat.username === senderUsername);
+    
+    // Kalau chatnya lagi dibuka, cukup bunyiin suara aja, nggak usah munculin pop-up notif
+    if (isChatActive) {
+      this.playPopSound();
+      return;
+    }
+
+    // 2. Kalau kita lagi di tab lain atau nutup chat, bunyiin suara + munculin Pop-up Desktop!
+    this.playPopSound();
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      const notif = new Notification("Pesan baru dari " + senderName, {
+        body: text,
+        icon: "https://cdn-icons-png.flaticon.com/512/124/124034.png" // Bisa diganti URL logo LINE
+      });
+      
+      // Kalau notifikasinya diklik, otomatis balik ke tab web kita dan buka chatnya
+      notif.onclick = () => {
+        window.focus();
+        this.openChat(senderUsername); 
+      };
+    }
+  },
 };
 
 // ==========================================

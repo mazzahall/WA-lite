@@ -807,3 +807,33 @@ body {
     color: #00c300;
     text-decoration: underline;
 }
+
+/* TAMPILAN KHUSUS HP (Mobile Responsive) */
+@media screen and (max-width: 768px) {
+  body {
+    display: block; /* Matiin flex kiri-kanan */
+  }
+  
+  /* Sidebar disulap jadi menu geser (drawer) */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -100%; /* Sembunyiin ke kiri */
+    width: 85%;
+    height: 100vh;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  }
+
+  /* Munculin sidebar kalau ada class 'open' */
+  .sidebar.open {
+    left: 0; 
+  }
+
+  /* Main chat ambil seluruh layar */
+  .main-chat {
+    width: 100%;
+    height: 100vh;
+  }
+}

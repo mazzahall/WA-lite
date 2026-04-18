@@ -233,6 +233,20 @@ const lineApp = {
     
     this.renderChatHeader();
 
+    // --- TAMBAHAN KODE UNTUK HP ---
+    // Kalau dibuka di layar HP (lebar <= 768px), sembunyikan sidebar setelah klik teman
+    if (window.innerWidth <= 768) {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('mobileOverlay');
+      if(sidebar) sidebar.classList.remove('open');
+      if(overlay) overlay.style.display = 'none';
+      
+      // Pastikan mainChat nutupin layar full
+      document.getElementById('mainChat').style.display = 'flex';
+      document.getElementById('mainChat').style.width = '100%';
+    }
+    // ------------------------------
+
     const msgsRef = database.ref('chats/' + this.currentChatNode);
     msgsRef.off(); 
     msgsRef.on('value', snap => {

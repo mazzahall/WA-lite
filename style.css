@@ -10,6 +10,8 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     overflow: hidden;
     color: #333;
+    display: flex;         /* Menjadikan layout bersebelahan */
+    flex-direction: row;   /* Memastikan alur dari kiri ke kanan */
 }
 
 .mobile-overlay {
@@ -33,8 +35,8 @@ body {
     box-shadow: 4px 0 30px rgba(0,0,0,0.1);
     transition: transform 0.3s ease;
     z-index: 999;
+    flex-shrink: 0; /* Mencegah sidebar menyusut */
 }
-
 .sidebar-header {
     padding: 16px 20px;
     background: linear-gradient(135deg, #00c300 0%, #00a300 100%);
@@ -229,16 +231,24 @@ body {
     border-radius: 50%;
 }
 
-.status-online {
+/* --- Logika Status Online/Offline --- */
+.status-dot {
     position: absolute;
     bottom: 2px;
     right: 2px;
     width: 14px;
     height: 14px;
-    background: #00c300;
     border: 2px solid white;
     border-radius: 50%;
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.status-dot.online {
+    background: #00c300; /* Hijau */
+}
+
+.status-dot.offline {
+    background: #999999; /* Abu-abu */
 }
 
 .contact-info {
@@ -696,4 +706,104 @@ body {
 .avatar-preview:hover {
     border-color: #00c300;
     background: rgba(0,195,0,0.1);
+}
+/* --- Tambahan untuk Fitur Read (Dibaca) --- */
+.message-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.message-read {
+    font-size: 10px;
+    color: #e0f8e0; /* Warna hijau pudar agar menyatu dengan bubble hijau */
+    font-weight: 600;
+}
+
+/* Update sedikit bagian message-time yang lama agar sejajar */
+.message-time {
+    margin-top: 0 !important; /* Menghilangkan margin atas yang lama */
+}
+
+/* --- Tampilan Login & Register --- */
+.auth-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #00c300 0%, #00a300 100%);
+    display: flex; /* Akan diubah jadi 'none' oleh JS kalau sudah login */
+    align-items: center;
+    justify-content: center;
+    z-index: 9999; /* Harus paling atas menutupi semuanya */
+}
+
+.auth-box {
+    background: white;
+    padding: 40px;
+    border-radius: 24px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.auth-logo {
+    font-size: 50px;
+    color: #00c300;
+    margin-bottom: 10px;
+}
+
+.auth-box h2 {
+    margin-bottom: 24px;
+    font-size: 22px;
+    color: #333;
+}
+
+.auth-box input {
+    width: 100%;
+    padding: 14px;
+    margin-bottom: 16px;
+    border: 2px solid #eee;
+    border-radius: 12px;
+    font-size: 15px;
+    box-sizing: border-box;
+    transition: 0.3s;
+}
+
+.auth-box input:focus {
+    border-color: #00c300;
+    outline: none;
+}
+
+.auth-box button {
+    width: 100%;
+    padding: 14px;
+    background: #00c300;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.auth-box button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,195,0,0.3);
+}
+
+.auth-box p {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+}
+
+.auth-box p:hover {
+    color: #00c300;
+    text-decoration: underline;
 }

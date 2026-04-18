@@ -808,32 +808,49 @@ body {
     text-decoration: underline;
 }
 
-/* TAMPILAN KHUSUS HP (Mobile Responsive) */
+/* ==========================================
+   TAMPILAN KHUSUS HP (Mobile Responsive)
+   ========================================== */
 @media screen and (max-width: 768px) {
-  body {
-    display: block; /* Matiin flex kiri-kanan */
+  body, .app-container {
+    display: block; 
+    overflow-x: hidden; /* Mencegah layar bisa digeser aneh ke samping */
   }
   
-  /* Sidebar disulap jadi menu geser (drawer) */
+  /* 1. Sidebar (Daftar Teman) otomatis penuhi layar penuh di awal */
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: -100%; /* Sembunyiin ke kiri */
-    width: 85%;
+    position: relative !important;
+    width: 100% !important;
+    left: 0 !important;
     height: 100vh;
-    z-index: 1000;
-    transition: all 0.3s ease;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    z-index: 1;
+    display: flex !important; 
   }
 
-  /* Munculin sidebar kalau ada class 'open' */
-  .sidebar.open {
+  /* 2. Ruang Chat kita sembunyiin dulu ke sebelah KANAN layar */
+  .main-chat {
+    position: fixed !important;
+    top: 0;
+    left: 100%; /* Ngumpet di luar layar sebelah kanan */
+    width: 100% !important;
+    height: 100vh;
+    z-index: 1000;
+    background-color: white;
+    transition: left 0.3s ease-in-out; /* Efek animasi geser smooth */
+  }
+
+  /* 3. Class ini dipanggil JS buat narik ruang chat ke tengah */
+  .main-chat.buka-di-hp {
     left: 0; 
   }
 
-  /* Main chat ambil seluruh layar */
-  .main-chat {
-    width: 100%;
-    height: 100vh;
+  /* 4. Teks welcome gede disembunyiin di HP biar hemat tempat */
+  .welcome-screen {
+    display: none !important;
   }
+}
+
+/* Sembunyikan tombol "Back" kalau dibuka di Laptop/PC */
+@media screen and (min-width: 769px) {
+  .back-btn-hp { display: none !important; }
 }

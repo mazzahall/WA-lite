@@ -219,7 +219,7 @@ const lineApp = {
     return [user1, user2].sort().join('_');
   },
 
-  openChat(friendUsername) {
+openChat(friendUsername) {
     const friend = this.friends.find(f => f.username === friendUsername);
     if (!friend) return;
     
@@ -233,19 +233,14 @@ const lineApp = {
     
     this.renderChatHeader();
 
-    // --- TAMBAHAN KODE UNTUK HP ---
-    // Kalau dibuka di layar HP (lebar <= 768px), sembunyikan sidebar setelah klik teman
+    // --- LOGIKA GESER UNTUK HP ---
     if (window.innerWidth <= 768) {
-      const sidebar = document.getElementById('sidebar');
-      const overlay = document.getElementById('mobileOverlay');
-      if(sidebar) sidebar.classList.remove('open');
-      if(overlay) overlay.style.display = 'none';
-      
-      // Pastikan mainChat nutupin layar full
-      document.getElementById('mainChat').style.display = 'flex';
-      document.getElementById('mainChat').style.width = '100%';
+      // Cari elemen main-chat (antisipasi pakai class atau id)
+      const mainChatArea = document.querySelector('.main-chat') || document.getElementById('mainChat');
+      if (mainChatArea) {
+        mainChatArea.classList.add('buka-di-hp'); // Menarik layar chat ke tengah
+      }
     }
-    // ------------------------------
 
     const msgsRef = database.ref('chats/' + this.currentChatNode);
     msgsRef.off(); 
